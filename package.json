@@ -1,0 +1,44 @@
+{
+  "name": "tick-trader",
+  "productName": "Tick Trader",
+  "version": "0.1.5",
+  "private": true,
+  "description": "Windows desktop app: tick-momentum signals and button automation for a web trading terminal",
+  "author": "Levon Oganesian",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node build.mjs && electron .",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "icon": "electron scripts/make-icon.cjs",
+    "dist": "node build.mjs && electron-builder --win portable --x64"
+  },
+  "build": {
+    "appId": "com.narcisbin.ticktrader",
+    "productName": "Tick Trader",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "!dist/**/*.map",
+      "package.json"
+    ],
+    "win": {
+      "icon": "build/icon.ico"
+    },
+    "portable": {
+      "artifactName": "TickTrader-${version}.exe"
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "electron": "^44.7.2",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.4"
+  }
+}

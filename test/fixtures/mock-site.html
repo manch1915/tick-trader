@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mock WTS</title>
+    <style>
+      body { font: 13px sans-serif; display: flex; gap: 24px; padding: 16px; }
+      table { border-collapse: collapse; }
+      td { border: 1px solid #ccc; padding: 2px 8px; text-align: right; }
+      .markCurrPrice { background: yellow; }
+      button { margin: 4px; padding: 6px 10px; }
+      #mode { margin-top: 12px; color: #666; }
+    </style>
+  </head>
+  <body>
+    <!-- Mirrors the structure of the real terminal that the site adapter relies on. -->
+    <div>
+      <div><span>현종목</span> <input id="item" value="A01612" readonly /></div>
+      <table>
+        <tr><td>잔고</td><td>평단가</td><td>평가손익</td></tr>
+        <tr><td id="balance">-</td><td>-</td><td>-</td></tr>
+      </table>
+      <!-- Label and values in separate cells, like a table-based layout. -->
+      <table><tr><td><label>주문가능수량</label></td><td><span>매수</span> <span id="canbuy">1</span></td><td><span>매도</span> <span id="cansell">1</span></td></tr></table>
+      <div>
+        <button id="sell">시장가매도</button>
+        <button id="close">현종목청산</button>
+        <button id="buy">시장가매수</button>
+      </div>
+      <table><tbody id="book"></tbody></table>
+      <div id="mode">Random walk. ?trend=up|down changes the drift.</div>
+    </div>
+    <table>
+      <tr><td>틱 사이즈</td><td>틱 가치</td><td>계약크기</td></tr>
+      <tr><td id="tick">0.05</td><td>12500</td><td>250000</td></tr>
+    </table>
+    <script>
+      // ?item=NQZ26&price=30140&tick=0.25 switch the instrument.
+      // ?chart=<url-encoded chart page> embeds a real /tradingchart/ page to test signal markers.
+      const params = new URLSearchParams(location.search);
+      const tick = Number(params.get('tick') || 0.05);
+      const levels = 10;
+      let price = Number(params.get('price') || 944.8);
+      let pos = 0;
+      document.getElementById('item').value = params.get('item') || 'A01612';
+      document.getElementById('tick').textContent = String(tick);
+      if (params.get('chart')) {
+        const frame = document.createElement('iframe');
+        frame.src = params.get('chart');
+        frame.style.cssText = 'width:900px;height:600px;border:1px solid #ccc';
+        document.body.appendChild(frame);
+      }
+      const trend = params.get('trend');
+      const drift = trend === 'up' ? 0.35 : trend === 'down' ? -0.35 : 0;
+      // ?margin=0: account cannot open positions. ?freeze=N: price stops changing after N seconds.
+      if (params.get('margin') === '0') {
+        document.getElementById('canbuy').textContent = '0';
+        document.getElementById('cansell').textContent = '0';
+      }
+      const freezeAt = params.has('freeze') ? Date.now() + Number(params.get('freeze')) * 1000 : Infinity;
+      // ?thaw=N: the frozen price starts moving again N seconds after start.
+      const thawAt = params.has('thaw') ? Date.now() + Number(params.get('thaw')) * 1000 : Infinity;
+
+      const book = document.getElementById('book');
+      const cells = [];
+      for (let i = levels; i >= -levels; i--) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        tr.appendChild(td);
+        book.appendChild(tr);
+        cells.push({ td, offset: i });
+      }
+
+      function render() {
+        for (const { td, offset } of cells) {
+          td.textContent = (price + offset * tick).toFixed(2);
+          td.className = 'bid_price' + (offset === 0 ? ' markCurrPrice' : '');
+        }
+        document.getElementById('balance').textContent = pos === 0 ? '-' : String(pos);
+      }
+
+      function step() {
+        if (Date.now() > freezeAt && Date.now() < thawAt) {
+          setTimeout(step, 200);
+          return;
+        }
+        // Slow momentum phases so the engine sees runs of same-direction ticks.
+        const phase = Math.sin(Date.now() / 7000);
+        const r = Math.random() - 0.5 + drift + phase * 0.6;
+        price = Math.round((price + Math.round(r * 2) * tick) / tick) * tick;
+        render();
+        setTimeout(step, 120 + Math.random() * 200);
+      }
+
+      document.getElementById('buy').onclick = () => { if (pos === 0) pos = 1; render(); };
+      document.getElementById('sell').onclick = () => { if (pos === 0) pos = -1; render(); };
+      document.getElementById('close').onclick = () => { pos = 0; render(); };
+
+      render();
+      step();
+    </script>
+  </body>
+</html>

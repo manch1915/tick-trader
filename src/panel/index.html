@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+    <title>Tick Trader</title>
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <div id="armed" class="armed" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 1 21h22L12 2zm0 6 1 7h-2l1-7zm0 9.5a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4z"/></svg>
+      <span>자동 주문 활성화 · 실제 주문이 전송됩니다</span>
+    </div>
+
+    <header class="bar">
+      <div class="status"><span id="status-dot" class="dot"></span><span id="status-text">정지</span></div>
+      <button id="start" class="btn primary">시작</button>
+    </header>
+
+    <ul id="warnings" class="warnings" aria-live="polite"></ul>
+
+    <section class="market">
+      <div class="cell"><span class="lbl">종목</span><span id="item" class="val mono">-</span></div>
+      <div class="cell"><span class="lbl">현재가</span><span id="price" class="val mono">-</span></div>
+      <div class="cell"><span class="lbl">1초 틱</span><span id="ticks" class="val mono">-</span></div>
+      <div class="cell"><span class="lbl">틱 사이즈</span><span id="tick-size" class="val mono">-</span></div>
+      <div class="cell span2"><span class="lbl">포지션</span><span id="position" class="val">-</span></div>
+      <div class="cell span2"><span class="lbl">주문가능수량</span><span id="orderable" class="val mono">-</span></div>
+    </section>
+
+    <section class="gauge" aria-label="1초 틱 게이지">
+      <div class="gauge-track">
+        <div id="gauge-sell" class="gauge-line sell"></div>
+        <div id="gauge-buy" class="gauge-line buy"></div>
+        <div id="gauge-close" class="gauge-line close" hidden></div>
+        <div class="gauge-zero"></div>
+        <div id="gauge-fill" class="gauge-fill"></div>
+        <div id="gauge-dot" class="gauge-dot"></div>
+      </div>
+      <div class="gauge-scale mono"><span id="gauge-min">-10</span><span>0</span><span id="gauge-max">+10</span></div>
+    </section>
+
+    <section id="signal" class="signal idle" aria-live="assertive">
+      <svg id="arrow" viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,8 92,72 8,72"></polygon></svg>
+      <div id="signal-text" class="signal-text">신호 대기</div>
+    </section>
+
+    <section class="rules">
+      <div class="rules-head">
+        <span></span><span>시간(초)</span><span>틱</span><span>자동</span><span>오늘</span>
+      </div>
+      <div class="rule" data-kind="buy">
+        <span class="name buy">매수<small class="timer mono"></small></span>
+        <input type="number" class="seconds" min="0" max="99" step="1" aria-label="매수 시간(초)" />
+        <input type="number" class="ticks" min="1" max="999" step="1" aria-label="매수 틱" />
+        <button class="toggle" aria-pressed="false" aria-label="매수 자동 주문">OFF</button>
+        <span class="count mono">0</span>
+        <div class="progress"><i></i></div>
+      </div>
+      <div class="rule" data-kind="sell">
+        <span class="name sell">매도<small class="timer mono"></small></span>
+        <input type="number" class="seconds" min="0" max="99" step="1" aria-label="매도 시간(초)" />
+        <input type="number" class="ticks" min="1" max="999" step="1" aria-label="매도 틱" />
+        <button class="toggle" aria-pressed="false" aria-label="매도 자동 주문">OFF</button>
+        <span class="count mono">0</span>
+        <div class="progress"><i></i></div>
+      </div>
+      <div class="rule" data-kind="close">
+        <span class="name close">청산<small class="timer mono"></small></span>
+        <input type="number" class="seconds" min="0" max="99" step="1" aria-label="청산 시간(초)" />
+        <input type="number" class="ticks" min="1" max="999" step="1" aria-label="청산 틱" />
+        <button class="toggle" aria-pressed="false" aria-label="청산 자동 주문">OFF</button>
+        <span class="count mono">0</span>
+        <div class="progress"><i></i></div>
+      </div>
+      <div class="rule delay-row">
+        <span class="name close">청산 지연(초)</span>
+        <input type="number" id="close-delay" min="0" max="99" step="1" aria-label="청산 지연(초)" />
+      </div>
+      <p class="hint">청산: 0초 = 하락(매수)·상승(매도) 시작가에서 틱만큼, 반등 시 재설정 · N초 = 최근 N초 최고·최저가에서</p>
+      <p class="hint">청산 지연: 조건이 지연 시간 동안 계속되면 청산, 끊기면 재시작 · 진입가 이탈 시 즉시 청산</p>
+      <p class="hint">자동 ON: 사이트 버튼 자동 클릭 · OFF: 신호만 (소리 + 화살표)</p>
+    </section>
+
+    <section class="options">
+      <label class="url-row">
+        <span>사이트 주소</span>
+        <input type="url" id="site-url" placeholder="https://..." spellcheck="false" />
+      </label>
+      <div class="switch-row">
+        <span>자동 재진입</span>
+        <button id="reentry" class="toggle" aria-pressed="false" aria-label="자동 재진입">OFF</button>
+      </div>
+      <div class="actions">
+        <button id="reset" class="btn">설정 초기화</button>
+        <button id="reload" class="btn">사이트 새로고침</button>
+      </div>
+      <p class="hint">긴급 정지: F9 (항상) · Esc (패널에서)</p>
+    </section>
+
+    <section class="log">
+      <div class="log-head">활동 로그</div>
+      <ol id="log" class="mono"></ol>
+    </section>
+
+    <script src="panel.js"></script>
+  </body>
+</html>
